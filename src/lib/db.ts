@@ -41,15 +41,27 @@ function connect() {
   //       (EMAXCONNSESSION) max clients reached in session mode
   //   and the page 500s. That is what took the console down.
   //
-  //   Transaction mode (6543) hands the connection back after each statement,
-  //   which is what a serverless app actually wants. It requires prepared
-  //   statements to be off — pgBouncer cannot route them — and with that set
-  //   it is stable: measured 12/12 concurrent clients where session mode was
-  //   already refusing connections.
+  //   Transaction mode (6543) should be the answer — it returns the connection
+  //   after each statement. It is not, on this project. Measured repeatedly:
+  //   an isolated burst succeeds, but a real workload wedges, and every
+  //   prerendered page fails with "canceling statement due to statement
+  //   timeout" — including /_not-found, which reads four settings rows, so it
+  //   was never query cost. Dropping the search_path startup parameter and
+  //   turning prepared statements off did not fix it. Builds hung for eight
+  //   minutes against 6543 and take forty seconds against 5432.
   //
-  // So: the app points at 6543. Migrations and the seed script keep 5432,
-  // because they are one long-lived process doing DDL, which is exactly what
-  // session mode is for.
+  // So the app stays on session mode, and the cost of that is managed here
+  // rather than wished away: `max` is 1, and `idle_timeout` is short so an
+  // instance between requests hands its connection back to the shared budget
+  // quickly rather than sitting on it.
+  //
+  // The real ceiling is the pool size, and raising it is a Supabase dashboard
+  // change (Database → Connection pooling → Pool size), not a code change. If
+  // the console starts returning EMAXCONNSESSION again under normal use, that
+  // is the dial to turn.
+  //
+  // ponytail: session pooler, 15 connections shared project-wide. Revisit
+  // transaction mode if Supavisor behaviour changes, or raise the pool size.
   const transactionMode = /:6543\b/.test(url);
 
   return postgres(url, {
@@ -61,8 +73,10 @@ function connect() {
     // pgBouncer in transaction mode cannot route prepared statements: leaving
     // this on is what makes postgres.js appear to "hang after one query".
     prepare: !transactionMode,
-    // Short, so an instance between requests returns its connection quickly.
-    idle_timeout: 3,
+    // Short, so an instance between requests returns its connection to the
+    // shared budget quickly. A busy instance keeps resetting the timer, so this
+    // costs reconnects only where they are cheap.
+    idle_timeout: 1,
     connect_timeout: 15,
     // A pooler in transaction mode does not carry arbitrary startup parameters
     // — a connection is not yours between statements, so there is no session to
