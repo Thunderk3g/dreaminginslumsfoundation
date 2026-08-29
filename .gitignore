@@ -9,3 +9,11 @@ build
 next-env.d.ts
 .DS_Store
 .vercel
+
+.vercel
+.env*
+
+# local credential notes - never commit
+supabase-vercel-github.txt
+*credentials*
+*secrets*
