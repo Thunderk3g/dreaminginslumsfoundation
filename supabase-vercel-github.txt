@@ -1,0 +1,20 @@
+https://saptczmkgxwhhlrkldys.supabase.co
+sb_publishable_8rJMduizDYiO5FMjG6zx_g_UskS6jhi
+postgresql://postgres:[YOUR-PASSWORD]@db.saptczmkgxwhhlrkldys.supabase.co:5432/postgres
+supabase login
+supabase init
+supabase link --project-ref saptczmkgxwhhlrkldys
+dreamingfromslumsfoundation
+LYhm&+6dkWZsm*U
+
+
+echo "# dreaminginslumsfoundation" >> README.md
+git init
+git add README.md
+git commit -m "first commit"
+git branch -M main
+git remote add origin https://github.com/Thunderk3g/dreaminginslumsfoundation.git
+git push -u origin main 
+
+
+
