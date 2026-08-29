@@ -64,7 +64,15 @@ function connect() {
     // Short, so an instance between requests returns its connection quickly.
     idle_timeout: 3,
     connect_timeout: 15,
-    connection: { search_path: "public, extensions" },
+    // A pooler in transaction mode does not carry arbitrary startup parameters
+    // — a connection is not yours between statements, so there is no session to
+    // put them in. Sending search_path anyway is what produced
+    // "canceling statement due to statement timeout" on every prerendered page.
+    //
+    // Nothing at runtime needs it: `extensions` is only on the path for
+    // gen_random_uuid() in DDL defaults, and migrations run against the session
+    // pooler where the parameter is still set.
+    ...(transactionMode ? {} : { connection: { search_path: "public, extensions" } }),
     transform: { undefined: null },
   });
 }
