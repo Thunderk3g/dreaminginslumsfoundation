@@ -17,3 +17,14 @@ next-env.d.ts
 supabase-vercel-github.txt
 *credentials*
 *secrets*
+
+# local probes - may contain credentials
+poolprobe.mjs
+logincheck.mjs
+prodcheck.mjs
+respcheck.mjs
+motioncheck.mjs
+slice.mjs
+shots.mjs
+verify.mjs
+imgcheck.mjs
