@@ -1,10 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Anton, Newsreader, IBM_Plex_Mono } from "next/font/google";
 import { getChrome, getSeo, mediaSrc } from "@/server/cms";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { Motion } from "@/components/motion";
+import { Motion, RouteCurtain } from "@/components/motion";
 import "./globals.css";
 
 /**
@@ -20,6 +20,16 @@ const spec = IBM_Plex_Mono({
   variable: "--font-spec",
   display: "swap",
 });
+
+/**
+ * `maximumScale` and `userScalable` are deliberately left alone — capping zoom
+ * is an accessibility failure, and this site is read on cheap phones.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#17092E",
+};
 
 /** Even the page title and the favicon come out of the database. */
 export async function generateMetadata(): Promise<Metadata> {
@@ -58,6 +68,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body>
         <style>{palette}</style>
         <div className="grain" aria-hidden />
+        <div className="progress" aria-hidden />
+        <div className="route-curtain" aria-hidden />
         <a href="#main" className="skip-link">
           Skip to content
         </a>
@@ -65,6 +77,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <main id="main">{children}</main>
         <SiteFooter chrome={chrome} />
         <Motion />
+        <RouteCurtain />
       </body>
     </html>
   );

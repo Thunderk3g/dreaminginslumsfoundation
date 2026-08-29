@@ -343,12 +343,51 @@ for (const [index, file] of GALLERY.entries()) {
   });
 }
 
-// impact_stat, dreamer_story and partner are intentionally left empty: the old
-// website carried none of them, and inventing figures or quotes for an NGO is
-// not a thing a migration script gets to do.
+/**
+ * The scoreboard figures.
+ *
+ * The old website published no statistics section, so every number here is
+ * lifted verbatim from a sentence that already existed on it — the note field
+ * records exactly where, so anyone can check. The design's 200+/25+/6/9 were
+ * invented for the mock and are not used.
+ *
+ * The last row is deliberately not a number: it exercises the odometer's
+ * fallback, and "12A" is a real certification rather than a count.
+ */
+const STATS = [
+  [
+    "150+",
+    "girls training every weekend",
+    "Programs page, verbatim: “We Are Training 150 Plus Girls Every Weekend.”",
+  ],
+  [
+    "120",
+    "jerseys sponsored, girls and coaches",
+    "Achievements, verbatim: “120 Jersey’s Sponsored to the girls, including Coaches by FSSA”.",
+  ],
+  [
+    "36",
+    "achievements on the record",
+    "The count of entries migrated from the old Achievements page.",
+  ],
+  [
+    "12A",
+    "certified, April 2022",
+    "About page, verbatim: “In April 2022, we achieved our registration and obtained the 12A certificate.”",
+  ],
+];
+
+for (const [index, [value, label, note]] of STATS.entries()) {
+  await addItem("impact_stat", (index + 1) * 10, true, { value, label, note });
+}
+
+// dreamer_story and partner stay empty: the old website carried neither, and
+// inventing quotes from named girls is not a thing a migration script gets to
+// do.
 
 console.log(
-  `content: ${ACHIEVEMENTS.length} achievements, ${TEAM.length} team members, ${GALLERY.length} gallery photographs`
+  `content: ${ACHIEVEMENTS.length} achievements, ${TEAM.length} team members, ` +
+    `${GALLERY.length} gallery photographs, ${STATS.length} impact figures`
 );
 
 /* Pages --------------------------------------------------------------------- */
@@ -391,10 +430,7 @@ await addBlock("home", "ticker", 15, true, {
   words: ["Dream", "Play", "Empower", "Lead", "Transform", "Since 2017"],
 });
 
-// Hidden: the old site published no impact figures, so there is nothing true to
-// put here until the foundation supplies them. The design's 200+/25+/6/9 are
-// mock numbers and were deliberately not migrated.
-await addBlock("home", "impact_stats", 18, false, {
+await addBlock("home", "impact_stats", 18, true, {
   eyebrow: "Proof of momentum",
   title: "Numbers from the ground / Mumbai",
   stat_ids: [],

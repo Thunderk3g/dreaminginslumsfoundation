@@ -34,23 +34,16 @@ export function HeroDots({ count }: { count: number }) {
   if (count < 2) return null;
 
   return (
-    <div style={{ display: "flex", gap: "0.5rem", marginTop: "1.75rem" }}>
+    <div style={{ display: "flex", gap: "1rem", marginTop: "1.75rem" }}>
       {Array.from({ length: count }, (_, i) => (
         <button
           key={i}
           type="button"
+          className="hero-dot"
           aria-label={`Show slide ${i + 1} of ${count}`}
           aria-current={i === active}
           onClick={() => setActive(i)}
-          style={{
-            width: i === active ? 28 : 10,
-            height: 10,
-            border: "1px solid var(--brand-ink)",
-            background: i === active ? "var(--brand-accent)" : "transparent",
-            cursor: "pointer",
-            transition: "width .3s, background .3s",
-            padding: 0,
-          }}
+          style={{ width: i === active ? 28 : 10 }}
         />
       ))}
     </div>

@@ -22,7 +22,7 @@ type MediaMap = Record<string, MediaMeta>;
 function SectionHead({ num, label, aside }: { num?: string; label: string; aside?: string }) {
   if (!label && !aside) return null;
   return (
-    <div className="sec-head spec" data-reveal>
+    <div className="sec-head spec" data-anim>
       <span>
         {num ? `Sec. ${num} — ` : null}
         {label}
@@ -73,25 +73,31 @@ function Figure({
   mediaId,
   media,
   cover = false,
+  wipe = false,
+  eager = false,
   missing = "No photograph chosen",
 }: {
   mediaId: string | null;
   media: MediaMap;
   cover?: boolean;
+  /** Reveals under a bottom-up clip wipe while the image settles from 1.06. */
+  wipe?: boolean;
+  eager?: boolean;
   missing?: string | null;
 }) {
   const src = mediaSrc(mediaId);
   if (!src) return missing ? <p className="no-media">{missing}</p> : null;
   const meta = mediaId ? media[mediaId] : undefined;
   return (
-    <div className={cover ? "plate plate-cover" : "plate"}>
+    <div className={`plate${cover ? " plate-cover" : ""}${wipe ? " plate-wipe" : ""}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
         alt={meta?.alt ?? ""}
         width={meta?.width ?? undefined}
         height={meta?.height ?? undefined}
-        loading="lazy"
+        loading={eager ? "eager" : "lazy"}
+        fetchPriority={eager ? "high" : undefined}
       />
     </div>
   );
@@ -100,12 +106,10 @@ function Figure({
 /** The rotating sunburst-and-ball mark, lifted from the design's hero. */
 function Sunburst() {
   return (
-    <div style={{ position: "absolute", right: 14, bottom: 14, width: 120, height: 120 }} aria-hidden>
+    <div className="sunburst" aria-hidden>
       <svg
-        width="120"
-        height="120"
         viewBox="0 0 140 140"
-        style={{ animation: "dis-spin 22s linear infinite", display: "block" }}
+        style={{ animation: "dis-spin 22s linear infinite", display: "block", width: "100%", height: "100%" }}
       >
         <g stroke="var(--brand-ink)" strokeWidth="1.5" strokeLinecap="round">
           {Array.from({ length: 8 }, (_, i) => i * 45).flatMap((deg) =>
@@ -123,22 +127,7 @@ function Sunburst() {
         </g>
         <circle cx="70" cy="70" r="30" fill="var(--brand-accent)" stroke="var(--brand-ink)" strokeWidth="1.5" />
       </svg>
-      <div
-        className="spec"
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: "0.53rem",
-          fontWeight: 600,
-          letterSpacing: "0.1em",
-          textAlign: "center",
-          lineHeight: 1.5,
-          color: "var(--brand-ink)",
-        }}
-      >
+      <div className="spec sunburst-text">
         Aspire
         <br />
         to
@@ -193,24 +182,18 @@ export function HeroSliderBlock({ data, media }: { data: Data; media: MediaMap }
                 }}
               >
                 <div>
+                  {/* Each line rises out of its own mask, 120ms apart, and the
+                      gold marker paints itself in once the first line lands. */}
                   <h1 className="h-xl">
-                    <span style={{ display: "block", overflow: "hidden" }}>
-                      <span
-                        style={{
-                          display: "block",
-                          animation: "dis-rise .9s var(--ease-out) .1s both",
-                        }}
-                      >
-                        {lead ? <span className="mark">{lead}</span> : null}
+                    {lead ? (
+                      <span className="rise-mask">
+                        <span className="rise" style={{ "--i": 0 } as React.CSSProperties}>
+                          <span className="mark">{lead}</span>
+                        </span>
                       </span>
-                    </span>
-                    <span style={{ display: "block", overflow: "hidden" }}>
-                      <span
-                        style={{
-                          display: "block",
-                          animation: "dis-rise .9s var(--ease-out) .24s both",
-                        }}
-                      >
+                    ) : null}
+                    <span className="rise-mask">
+                      <span className="rise" style={{ "--i": lead ? 1 : 0 } as React.CSSProperties}>
                         {headline}
                       </span>
                     </span>
@@ -230,7 +213,9 @@ export function HeroSliderBlock({ data, media }: { data: Data; media: MediaMap }
               {mediaId ? (
                 <figure style={{ margin: 0, maxWidth: "40rem", justifySelf: "end", width: "100%" }}>
                   <div style={{ position: "relative" }}>
-                    <Figure mediaId={mediaId} media={media} missing={null} />
+                    {/* The first slide is the LCP image on most visits, so it
+                        loads eagerly and at high priority. */}
+                    <Figure mediaId={mediaId} media={media} missing={null} wipe eager={i === 0} />
                     <Sunburst />
                   </div>
                   <figcaption className="fig-caption spec">
@@ -291,14 +276,14 @@ export function StoryBlock({ data, media }: { data: Data; media: MediaMap }) {
 
   const words = (
     <div>
-      <h2 className="h-lg" data-reveal style={{ marginBottom: "2.75rem" }}>
+      <h2 className="h-lg" data-anim style={{ marginBottom: "2.75rem" }}>
         {s(data, "title")}
       </h2>
-      <div data-reveal>
+      <div data-anim>
         <Paragraphs text={s(data, "body")} className="prose prose-drop" />
       </div>
       {bullets.length ? (
-        <ol className="bullets" data-reveal>
+        <ol className="bullets" data-anim>
           {bullets.map((line, i) => (
             <li key={i}>{line}</li>
           ))}
@@ -306,17 +291,19 @@ export function StoryBlock({ data, media }: { data: Data; media: MediaMap }) {
       ) : null}
       {quote ? (
         <>
-          <blockquote className="pull-quote" data-reveal>
-            “{quote}”
+          {/* The gold bar grows first, then the words arrive under it. */}
+          <blockquote className="pull-quote">
+            <span className="quote-bar" aria-hidden />
+            <p className="quote-text">“{quote}”</p>
           </blockquote>
           {s(data, "quote_attribution") ? (
-            <p className="spec" data-reveal style={{ margin: "1.125rem 0 0 1.8rem", fontWeight: 600 }}>
+            <p className="spec" data-anim style={{ margin: "1.125rem 0 0 1.8rem", fontWeight: 600 }}>
               — {s(data, "quote_attribution")}
             </p>
           ) : null}
         </>
       ) : null}
-      <div style={{ marginTop: "2.75rem" }} data-reveal>
+      <div style={{ marginTop: "2.75rem" }} data-anim>
         <Button value={cta(data, "cta")} quiet />
       </div>
     </div>
@@ -336,7 +323,7 @@ export function StoryBlock({ data, media }: { data: Data; media: MediaMap }) {
                   {watermark}
                 </div>
               ) : null}
-              <div data-reveal style={{ position: "relative", zIndex: 1 }}>
+              <div data-anim style={{ position: "relative", zIndex: 1 }}>
                 <Figure mediaId={mediaId} media={media} />
               </div>
             </div>
@@ -361,12 +348,12 @@ export function TeaserCardsBlock({ data, media }: { data: Data; media: MediaMap 
       <div className="wrap">
         <SectionHead label={s(data, "eyebrow")} />
         {heading ? (
-          <h2 className="h-lg" data-reveal style={{ marginBottom: "clamp(2.5rem,5vw,4rem)" }}>
+          <h2 className="h-lg" data-anim style={{ marginBottom: "clamp(2.5rem,5vw,4rem)" }}>
             {heading}
           </h2>
         ) : null}
 
-        <div data-reveal>
+        <div data-anim>
           {cards.map((card, i) => {
             const target = cta(card, "cta");
             const mediaId = typeof card.media_id === "string" ? card.media_id : null;
@@ -376,7 +363,7 @@ export function TeaserCardsBlock({ data, media }: { data: Data; media: MediaMap 
             const body = (
               <>
                 <span className="index-num">{String(i + 1).padStart(2, "0")}</span>
-                <span className="h-md" style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <span className="h-md index-title" style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                   {anyIcons && src ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={src} alt={meta?.alt ?? ""} width={32} height={32} style={{ display: "block" }} />
@@ -411,10 +398,12 @@ export function ImpactStatsBlock({ data, items }: { data: Data; items: ContentIt
   if (!items.length) return null;
   return (
     <section className="band band-dark">
-      <div className="wrap">
+      <div className="wrap" data-board>
         <SectionHead num="01" label={s(data, "eyebrow")} aside={s(data, "title")} />
         {items.map((item, i) => (
-          <div className="score-row" key={item.id} data-reveal data-reveal-delay={i * 80}>
+          <div className="score-row" key={item.id}>
+            {/* The rule draws itself left to right as the row arrives. */}
+            <div data-rule className="score-rule" aria-hidden />
             <span className="score-index">{String(i + 1).padStart(2, "0")}</span>
             <div>
               <div className="spec" style={{ fontSize: "0.8125rem", fontWeight: 600, letterSpacing: "0.2em" }}>
@@ -422,11 +411,14 @@ export function ImpactStatsBlock({ data, items }: { data: Data; items: ContentIt
               </div>
               {s(item.data, "note") ? <p className="lede" style={{ marginTop: 8 }}>{s(item.data, "note")}</p> : null}
             </div>
-            <div className="score-value" data-count="">
+            {/* data-count carries the value verbatim, so a figure that is not a
+                number — "Nine", "12A" — is simply left as typed. */}
+            <div className="score-value" data-count={s(item.data, "value")}>
               {s(item.data, "value")}
             </div>
           </div>
         ))}
+        <div data-rule data-last-rule className="score-rule" aria-hidden />
       </div>
     </section>
   );
@@ -447,14 +439,14 @@ export function AchievementRailBlock({
       <div className="wrap">
         <SectionHead label={s(data, "eyebrow")} aside={s(data, "title") ? undefined : undefined} />
         {s(data, "title") ? (
-          <h2 className="h-lg" data-reveal style={{ marginBottom: "clamp(2.5rem,5vw,4rem)" }}>
+          <h2 className="h-lg" data-anim style={{ marginBottom: "clamp(2.5rem,5vw,4rem)" }}>
             {s(data, "title")}
           </h2>
         ) : null}
 
         <ul className="card-grid">
-          {items.map((item, i) => (
-            <li key={item.id} data-reveal data-reveal-delay={(i % 4) * 80}>
+          {items.map((item) => (
+            <li key={item.id} data-anim>
               <figure style={{ margin: 0 }}>
                 <Figure mediaId={id(item.data, "media_id")} media={media} cover missing={null} />
                 <figcaption style={{ marginTop: "0.875rem" }}>
@@ -472,7 +464,7 @@ export function AchievementRailBlock({
           ))}
         </ul>
 
-        <div style={{ marginTop: "2.5rem" }} data-reveal>
+        <div style={{ marginTop: "2.5rem" }} data-anim>
           <Button value={cta(data, "cta")} quiet />
         </div>
       </div>
@@ -495,16 +487,20 @@ export function GalleryGridBlock({
       <div className="wrap">
         <SectionHead label={s(data, "eyebrow")} />
         {s(data, "title") ? (
-          <h2 className="h-lg" data-reveal style={{ marginBottom: "clamp(2.5rem,5vw,4rem)" }}>
+          <h2 className="h-lg" data-anim style={{ marginBottom: "clamp(2.5rem,5vw,4rem)" }}>
             {s(data, "title")}
           </h2>
         ) : null}
 
         <ul className="card-grid">
-          {items.map((item, i) => (
-            <li key={item.id} data-reveal data-reveal-delay={(i % 4) * 70}>
+          {items.map((item) => (
+            <li key={item.id} data-anim className="gal-item">
               <figure style={{ margin: 0 }}>
-                <Figure mediaId={id(item.data, "media_id")} media={media} cover missing={null} />
+                {/* A button, not a div: the lightbox has to be reachable and
+                    openable from the keyboard. */}
+                <button type="button" className="gal-open" aria-label="Open photograph">
+                  <Figure mediaId={id(item.data, "media_id")} media={media} cover missing={null} />
+                </button>
                 {s(item.data, "caption") || s(item.data, "taken_label") ? (
                   <figcaption className="spec" style={{ marginTop: "0.625rem", color: "var(--ink-55)" }}>
                     {s(item.data, "caption")}
@@ -517,7 +513,7 @@ export function GalleryGridBlock({
           ))}
         </ul>
 
-        <div style={{ marginTop: "2.5rem" }} data-reveal>
+        <div style={{ marginTop: "2.5rem" }} data-anim>
           <Button value={cta(data, "cta")} quiet />
         </div>
       </div>
@@ -553,7 +549,7 @@ export function TeamRailBlock({
             gap: "2rem",
             marginBottom: "clamp(2.5rem,5vw,4rem)",
           }}
-          data-reveal
+          data-anim
         >
           <h2 className="h-lg">{s(data, "title")}</h2>
           <div style={{ maxWidth: "26rem" }}>
@@ -566,10 +562,10 @@ export function TeamRailBlock({
 
         {items.length ? (
           <ul className="card-grid">
-            {items.map((item, i) => {
+            {items.map((item) => {
               const socials = MEMBER_SOCIALS.filter((social) => s(item.data, social.key));
               return (
-                <li key={item.id} data-reveal data-reveal-delay={(i % 4) * 80}>
+                <li key={item.id} data-anim>
                   <Figure mediaId={id(item.data, "media_id")} media={media} cover missing={null} />
                   <h3 className="h-md" style={{ marginTop: "0.875rem" }}>
                     {s(item.data, "name")}
@@ -625,7 +621,7 @@ export function DreamerRailBlock({
       <div className="wrap">
         <SectionHead num="04" label={s(data, "eyebrow")} aside="In their own words" />
         {s(data, "title") ? (
-          <h2 className="h-lg" data-reveal style={{ marginBottom: "clamp(2.5rem,5vw,4.375rem)" }}>
+          <h2 className="h-lg" data-anim style={{ marginBottom: "clamp(2.5rem,5vw,4.375rem)" }}>
             {s(data, "title")}
           </h2>
         ) : null}
@@ -633,7 +629,7 @@ export function DreamerRailBlock({
 
       <ul className="card-scroller" style={{ listStyle: "none", margin: 0 }}>
         {items.map((item, i) => (
-          <li key={item.id} className="print" data-reveal data-reveal-delay={i * 100}>
+          <li key={item.id} className="print" data-anim>
             <figure style={{ margin: 0 }}>
               <div style={{ position: "relative" }}>
                 <div className="plate plate-cover" style={{ height: 230 }}>
@@ -685,7 +681,9 @@ export function TimelineBlock({ data }: { data: Data }) {
           <div className="timeline-spine" aria-hidden />
           <div className="timeline-fill" aria-hidden />
           {entries.map((entry, i) => (
-            <div className="tl-row" key={i} data-reveal>
+            // The last milestone is "now": once the spine reaches it, its node
+            // keeps breathing rather than settling.
+            <div className={`tl-row${i === entries.length - 1 ? " is-now" : ""}`} key={i} data-anim>
               <div className="tl-year">{typeof entry.year === "string" ? entry.year : ""}</div>
               <div className="tl-node" aria-hidden />
               <p className="tl-text">{typeof entry.body === "string" ? entry.body : ""}</p>
@@ -704,18 +702,18 @@ export function ProgramListBlock({ data }: { data: Data }) {
       <div className="wrap">
         <SectionHead label={s(data, "eyebrow")} />
         {s(data, "title") ? (
-          <h2 className="h-lg" data-reveal style={{ marginBottom: "1.5rem" }}>
+          <h2 className="h-lg" data-anim style={{ marginBottom: "1.5rem" }}>
             {s(data, "title")}
           </h2>
         ) : null}
-        <div style={{ maxWidth: "48rem" }} data-reveal>
+        <div style={{ maxWidth: "48rem" }} data-anim>
           <Paragraphs text={s(data, "intro")} className="lede" />
         </div>
 
         {entries.map((entry, i) => (
           <article
             key={i}
-            data-reveal
+            data-anim
             style={{
               display: "grid",
               gap: "1.25rem clamp(1.5rem,4vw,3.5rem)",
@@ -745,11 +743,11 @@ export function RichTextBlock({ data }: { data: Data }) {
       <div className="wrap" style={{ maxWidth: "56rem" }}>
         <SectionHead label={s(data, "eyebrow")} />
         {s(data, "title") ? (
-          <h2 className="h-lg" data-reveal style={{ marginBottom: "1.5rem" }}>
+          <h2 className="h-lg" data-anim style={{ marginBottom: "1.5rem" }}>
             {s(data, "title")}
           </h2>
         ) : null}
-        <div data-reveal>
+        <div data-anim>
           <Paragraphs text={s(data, "body")} />
         </div>
       </div>
@@ -824,16 +822,16 @@ export function DonateCtaBlock({ data, media }: { data: Data; media: MediaMap })
             gap: "clamp(2rem,5vw,3.75rem)",
           }}
         >
-          <h2 className="h-xl" data-reveal style={{ flex: "1 1 20rem" }}>
+          <h2 className="h-xl" data-anim style={{ flex: "1 1 20rem" }}>
             {s(data, "title")}
           </h2>
 
           {qr ? (
             <figure
-              data-reveal
-              data-parallax="-0.05"
+              data-anim
+              className="qr-tilt"
               style={{
-                width: 260,
+                width: "min(260px, 100%)",
                 flex: "none",
                 margin: 0,
                 background: "var(--brand-ink)",
@@ -854,34 +852,29 @@ export function DonateCtaBlock({ data, media }: { data: Data; media: MediaMap })
           ) : null}
         </div>
 
-        <div style={{ maxWidth: "30rem", margin: "2rem 0 3.5rem" }} data-reveal>
+        <div style={{ maxWidth: "30rem", margin: "2rem 0 3.5rem" }} data-anim>
           <Paragraphs text={s(data, "body")} className="lede" />
         </div>
 
         {ways.length ? (
-          <div data-reveal>
+          <div data-anim>
             {ways.map((way, i) => {
               const target = cta(way, "cta");
               const body = (
                 <>
                   <span className="index-num">{String.fromCharCode(65 + i)}</span>
-                  <span className="h-md">{typeof way.title === "string" ? way.title : ""}</span>
+                  <span className="h-md index-title">{typeof way.title === "string" ? way.title : ""}</span>
                   <span className="index-arrow" aria-hidden>
                     →
                   </span>
                 </>
               );
               return target ? (
-                <Link
-                  key={i}
-                  href={target.href}
-                  className="index-row"
-                  style={{ gridTemplateColumns: "3.5rem 1fr 2rem" }}
-                >
+                <Link key={i} href={target.href} className="index-row is-compact">
                   {body}
                 </Link>
               ) : (
-                <div key={i} className="index-row" style={{ gridTemplateColumns: "3.5rem 1fr 2rem" }}>
+                <div key={i} className="index-row is-compact">
                   {body}
                 </div>
               );
@@ -889,7 +882,7 @@ export function DonateCtaBlock({ data, media }: { data: Data; media: MediaMap })
           </div>
         ) : null}
 
-        <div style={{ marginTop: "3.5rem" }} data-reveal>
+        <div style={{ marginTop: "3.5rem" }} data-anim>
           <Button value={cta(data, "cta")} />
         </div>
 
@@ -938,7 +931,7 @@ export function PartnerLogosBlock({
             );
             const url = s(item.data, "url");
             return (
-              <li key={item.id} data-reveal>
+              <li key={item.id} data-anim>
                 {url ? (
                   <a href={url} target="_blank" rel="noreferrer noopener">
                     {inner}
@@ -979,22 +972,22 @@ export function ContactDetailsBlock({
       <div className="wrap">
         <SectionHead label={s(data, "eyebrow")} />
         {s(data, "title") ? (
-          <h2 className="h-lg" data-reveal style={{ marginBottom: "1.5rem" }}>
+          <h2 className="h-lg" data-anim style={{ marginBottom: "1.5rem" }}>
             {s(data, "title")}
           </h2>
         ) : null}
-        <div style={{ maxWidth: "40rem" }} data-reveal>
+        <div style={{ maxWidth: "40rem" }} data-anim>
           <Paragraphs text={s(data, "body")} className="lede" />
         </div>
 
         <div className="split" style={{ marginTop: "clamp(2rem,4vw,3rem)" }}>
-          <dl style={{ margin: 0 }} data-reveal>
+          <dl style={{ margin: 0 }} data-anim>
             {rowsOut.map((row) => (
               <div key={row.label} style={{ borderTop: "1px solid var(--ink-25)", padding: "1.25rem 0" }}>
                 <dt className="spec" style={{ color: "var(--brand-secondary)" }}>
                   {row.label}
                 </dt>
-                <dd style={{ margin: "0.375rem 0 0", fontSize: "1.125rem" }}>
+                <dd className="contact-value" style={{ margin: "0.375rem 0 0", fontSize: "1.125rem" }}>
                   {row.href ? <a href={row.href}>{row.value}</a> : row.value}
                 </dd>
               </div>
@@ -1002,7 +995,7 @@ export function ContactDetailsBlock({
           </dl>
 
           {map ? (
-            <div data-reveal className="split-media">
+            <div data-anim className="split-media">
               <iframe
                 src={map}
                 title="Map to the foundation"

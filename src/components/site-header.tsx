@@ -1,30 +1,28 @@
 import Link from "next/link";
 import { mediaSrc, type Chrome } from "@/server/cms";
+import { MobileNav } from "./mobile-nav";
 
 /**
- * The fixed masthead: logo, menu, and the donate button welded to the right
+ * The sticky masthead: logo, menu, and the donate button welded to the right
  * edge in gold.
  *
- * Everything here is a settings row — the logo, every link, the button's words
- * and where it goes. Nothing about this component knows what the organisation
- * is called.
+ * Everything is a settings row — the logo, every link, the button's words and
+ * where it goes. Nothing here knows what the organisation is called.
+ *
+ * Two menus are rendered: the inline one, which is the real markup and is all a
+ * crawler or a no-JS visitor ever sees, and the phone panel, which is hidden
+ * from wide screens by CSS. Below 64rem the inline list is hidden and the
+ * toggle takes over.
  */
 export function SiteHeader({ chrome }: { chrome: Chrome }) {
   const { site, nav } = chrome;
   const logo = mediaSrc(site.logo_media_id);
+  const donate = site.donate.href ? site.donate : null;
 
   return (
     <>
       {site.announcement.enabled && site.announcement.text ? (
-        <div
-          className="spec"
-          style={{
-            background: "var(--brand-ink)",
-            color: "var(--brand-paper)",
-            textAlign: "center",
-            padding: "0.625rem 1.25rem",
-          }}
-        >
+        <div className="announce spec">
           {site.announcement.href ? (
             <Link href={site.announcement.href}>{site.announcement.text} →</Link>
           ) : (
@@ -33,98 +31,36 @@ export function SiteHeader({ chrome }: { chrome: Chrome }) {
         </div>
       ) : null}
 
-      <nav
-        aria-label="Main"
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 60,
-          background: "color-mix(in srgb, var(--brand-paper) 92%, transparent)",
-          backdropFilter: "blur(10px)",
-          borderBottom: "1px solid var(--brand-ink)",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "stretch",
-            justifyContent: "space-between",
-            gap: "1rem",
-            paddingLeft: "1.25rem",
-          }}
-        >
-          <Link
-            href="/"
-            style={{ display: "flex", alignItems: "center", gap: 12, padding: "0.75rem 0" }}
-          >
+      <header className="masthead">
+        <div className="masthead-row">
+          <Link href="/" className="masthead-brand">
             {logo ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={logo}
-                alt={site.org_name}
-                style={{ height: 40, width: "auto", display: "block", mixBlendMode: "multiply" }}
-              />
+              <img src={logo} alt={site.org_name} className="masthead-logo" />
             ) : (
-              <span className="display" style={{ fontSize: "1.125rem" }}>
-                {site.short_name}
-              </span>
+              <span className="display masthead-wordmark">{site.short_name}</span>
             )}
           </Link>
 
-          <div
-            className="spec"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "clamp(0.75rem,2vw,1.875rem)",
-              fontWeight: 500,
-              flexWrap: "wrap",
-              justifyContent: "flex-end",
-            }}
-          >
-            <ul
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "clamp(0.75rem,2vw,1.875rem)",
-                listStyle: "none",
-                margin: 0,
-                padding: "0.5rem 0",
-                flexWrap: "wrap",
-              }}
-            >
+          <nav aria-label="Main" className="masthead-nav spec">
+            <ul>
               {nav.primary.map((link) => (
                 <li key={`${link.href}-${link.label}`}>
-                  <Link
-                    href={link.href}
-                    style={{ borderBottom: "1px solid transparent", padding: "2px 0" }}
-                  >
-                    {link.label}
-                  </Link>
+                  <Link href={link.href}>{link.label}</Link>
                 </li>
               ))}
             </ul>
+          </nav>
 
-            {site.donate.href ? (
-              <Link
-                href={site.donate.href}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  alignSelf: "stretch",
-                  background: "var(--brand-accent)",
-                  color: "var(--brand-ink)",
-                  padding: "1.25rem 1.625rem",
-                  fontWeight: 600,
-                  borderLeft: "1px solid var(--brand-ink)",
-                }}
-              >
-                {site.donate.label} ↗
-              </Link>
-            ) : null}
-          </div>
+          {donate ? (
+            <Link href={donate.href} className="masthead-donate spec">
+              {donate.label} <span className="arr" aria-hidden>↗</span>
+            </Link>
+          ) : null}
+
+          <MobileNav links={nav.primary} donate={donate} />
         </div>
-      </nav>
+      </header>
     </>
   );
 }

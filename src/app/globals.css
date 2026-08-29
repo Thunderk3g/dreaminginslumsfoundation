@@ -68,6 +68,34 @@
     -webkit-text-size-adjust: 100%;
   }
 
+  /* Nothing may push the page sideways. `clip` rather than `hidden`: `hidden`
+     silently turns the element into a scroll container, which kills the sticky
+     masthead on every browser. */
+  body {
+    overflow-x: clip;
+  }
+
+  /* Anton is condensed and set very large, so a long single word — a Marathi
+     place name, an unbroken URL an editor pasted — is the one thing that can
+     still overflow a phone. Break it rather than let it escape. */
+  .h-xl,
+  .h-lg,
+  .h-md,
+  .display,
+  .watermark,
+  .tl-year,
+  .score-value {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  img,
+  svg,
+  iframe,
+  video {
+    max-width: 100%;
+  }
+
   body {
     margin: 0;
     background: var(--brand-paper);
@@ -149,19 +177,97 @@
     }
   }
 
-  /* Reveal-on-scroll. The attribute is only set by JS on elements that started
-     below the fold, so server HTML paints fully visible: no flash above the
-     fold and no blank page without JavaScript. */
-  [data-reveal="out"] {
+  /* Reveal-on-scroll.
+     `data-anim` is what the markup carries. `data-reveal` is set *by* JS, and
+     only on elements that started below the fold — so server HTML paints fully
+     visible, there is no flash above the fold, and with JavaScript off nothing
+     is hidden at all. That is why the hiding rule keys off data-reveal and not
+     off data-anim. */
+  [data-reveal] {
     opacity: 0;
     transform: translateY(44px);
-  }
-  [data-reveal] {
     transition:
       opacity 0.85s var(--ease-out),
       transform 0.85s var(--ease-out);
+    transition-delay: var(--rd, 0ms);
+  }
+  [data-reveal].is-in {
+    opacity: 1;
+    transform: none;
   }
 
+  /* A hairline that draws itself left to right. */
+  [data-rule] {
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.6s var(--ease-out);
+    transition-delay: var(--rd, 0ms);
+  }
+  [data-rule].is-in {
+    transform: scaleX(1);
+  }
+
+  @keyframes dis-paint {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+  @keyframes dis-plate-wipe {
+    from {
+      clip-path: inset(100% 0 0 0);
+    }
+    to {
+      clip-path: inset(0 0 0 0);
+    }
+  }
+  @keyframes dis-plate-settle {
+    from {
+      transform: scale(1.06);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
+  @keyframes dis-node-pop {
+    0% {
+      transform: rotate(45deg) scale(0);
+    }
+    62% {
+      transform: rotate(45deg) scale(1.25);
+    }
+    100% {
+      transform: rotate(45deg) scale(1);
+    }
+  }
+  @keyframes dis-breath {
+    0%,
+    100% {
+      transform: rotate(45deg) scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: rotate(45deg) scale(1.18);
+      opacity: 0.86;
+    }
+  }
+  @keyframes dis-route {
+    0% {
+      transform: translate3d(-140%, -40%, 0) rotate(-18deg);
+    }
+    46% {
+      transform: translate3d(0, 0, 0) rotate(-18deg);
+    }
+    100% {
+      transform: translate3d(140%, 40%, 0) rotate(-18deg);
+    }
+  }
+
+  /* Reduced motion kills every one of these. Nothing above is load-bearing for
+     comprehension — each effect only changes how something arrives, never
+     whether it is there. */
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
@@ -169,13 +275,27 @@
     *,
     *::before,
     *::after {
-      animation-duration: 0.01ms !important;
+      animation-duration: 0.001ms !important;
       animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
+      transition-duration: 0.001ms !important;
+      transition-delay: 0ms !important;
     }
-    [data-reveal] {
+    [data-reveal],
+    [data-rule],
+    .quote-text {
       opacity: 1 !important;
       transform: none !important;
+    }
+    .plate-wipe {
+      clip-path: none !important;
+    }
+    .index-row:hover,
+    .print:hover {
+      transform: none !important;
+    }
+    .tl-node {
+      transform: rotate(45deg) scale(1) !important;
     }
   }
 }
@@ -192,6 +312,206 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 
+  /* ------------------------------------------------------------ masthead -- */
+
+  .announce {
+    background: var(--brand-ink);
+    color: var(--brand-paper);
+    text-align: center;
+    padding: 0.625rem 1.25rem;
+  }
+
+  .masthead {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    background: color-mix(in srgb, var(--brand-paper) 92%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--brand-ink);
+  }
+
+  .masthead-row {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-left: 1.25rem;
+  }
+
+  .masthead-brand {
+    display: flex;
+    align-items: center;
+    padding: 0.625rem 0;
+  }
+  .masthead-logo {
+    height: 34px;
+    width: auto;
+    display: block;
+    mix-blend-mode: multiply;
+  }
+  .masthead-wordmark {
+    font-size: 1rem;
+  }
+
+  /* Inline menu and the gold button are desktop-only; the phone gets the panel
+     instead. Both are in the HTML — this only decides which one is shown. */
+  .masthead-nav,
+  .masthead-donate {
+    display: none;
+  }
+  .masthead-nav ul {
+    display: flex;
+    align-items: center;
+    gap: clamp(0.75rem, 2vw, 1.875rem);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .masthead-nav a {
+    display: block;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.35s var(--ease-out);
+  }
+  .masthead-nav a:hover {
+    border-bottom-color: var(--brand-ink);
+  }
+
+  .masthead-donate {
+    align-items: center;
+    align-self: stretch;
+    background: var(--brand-accent);
+    color: var(--brand-ink);
+    padding: 1.25rem 1.625rem;
+    font-weight: 600;
+    border-left: 1px solid var(--brand-ink);
+    white-space: nowrap;
+  }
+
+  /* 44px minimum touch target, per WCAG target size. */
+  .nav-toggle {
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    min-height: 44px;
+    padding: 0 1.25rem;
+    background: var(--brand-accent);
+    color: var(--brand-ink);
+    border: 0;
+    border-left: 1px solid var(--brand-ink);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .nav-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    background: var(--brand-ink);
+    color: var(--brand-paper);
+    padding: 5rem 1.5rem 2rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .nav-close {
+    position: absolute;
+    top: 0.75rem;
+    right: 1rem;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 0.75rem;
+    background: var(--brand-accent);
+    color: var(--brand-ink);
+    border: 0;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .nav-panel ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .nav-panel li + li {
+    border-top: 1px solid var(--paper-25);
+  }
+  .nav-panel a {
+    display: block;
+    padding: 1rem 0;
+    font-family: var(--font-display), "Anton", Impact, sans-serif;
+    text-transform: uppercase;
+    font-size: 1.75rem;
+    line-height: 1.1;
+  }
+  .nav-panel-cta {
+    margin-top: 2rem;
+    display: inline-block;
+  }
+  .nav-panel-cta:hover {
+    background: var(--brand-paper);
+    color: var(--brand-ink);
+  }
+
+  @media (min-width: 64rem) {
+    .masthead-nav,
+    .masthead-donate {
+      display: flex;
+    }
+    .nav-toggle,
+    .nav-panel {
+      display: none;
+    }
+    .masthead-logo {
+      height: 40px;
+    }
+    .masthead-brand {
+      padding: 0.75rem 0;
+    }
+  }
+
+  /* ------------------------------------------------------- tap targets --
+     WCAG 2.5.8 asks for 24x24 CSS px; 44px is what actually feels reliable on
+     a phone. These are the places where the type is small by design — the mono
+     specimen register — so the target has to be grown deliberately rather than
+     by making the text bigger. */
+  footer nav a,
+  footer ul a,
+  .masthead-nav a,
+  .contact-value a,
+  .btn-quiet {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  /* The masthead is only 44px of chrome to begin with, so its links take the
+     full bar height rather than adding to it. */
+  .masthead-nav a {
+    min-height: 0;
+    padding-block: 1.25rem;
+  }
+
+  /* The dot keeps its 10px look; the hit area is grown invisibly around it. */
+  .hero-dot {
+    position: relative;
+    height: 10px;
+    border: 1px solid var(--brand-ink);
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    transition:
+      width 0.3s var(--ease-out),
+      background 0.3s var(--ease-out);
+  }
+  .hero-dot[aria-current="true"] {
+    background: var(--brand-accent);
+  }
+  .hero-dot::after {
+    content: "";
+    position: absolute;
+    inset: -17px -8px;
+  }
+
   .wrap {
     width: 100%;
     max-width: 85rem;
@@ -205,7 +525,7 @@
   }
 
   .band {
-    padding-block: clamp(4rem, 9vw, 8.125rem);
+    padding-block: clamp(3rem, 9vw, 8.125rem);
     border-top: 1px solid var(--brand-ink);
   }
   .band-dark {
@@ -255,7 +575,9 @@
     text-transform: uppercase;
     line-height: 0.92;
     letter-spacing: 0.01em;
-    font-size: clamp(3.25rem, 9vw, 8.5rem);
+    /* The vw term has to carry the small end, not the rem floor: at 360px a
+       3.25rem floor is 52px of Anton, which "LIMITLESS" cannot fit. */
+    font-size: clamp(2.5rem, 10vw, 8.5rem);
     margin: 0;
   }
   .h-lg {
@@ -263,7 +585,7 @@
     font-weight: 400;
     text-transform: uppercase;
     line-height: 0.96;
-    font-size: clamp(2.5rem, 5vw, 4.75rem);
+    font-size: clamp(1.875rem, 6vw, 4.75rem);
     margin: 0;
   }
   .h-md {
@@ -271,7 +593,7 @@
     font-weight: 400;
     text-transform: uppercase;
     line-height: 1;
-    font-size: clamp(1.5rem, 2.6vw, 2.5rem);
+    font-size: clamp(1.375rem, 5vw, 2.5rem);
     margin: 0;
   }
 
@@ -332,7 +654,7 @@
   .prose-drop > p:first-of-type::first-letter {
     float: left;
     font-family: var(--font-display), "Anton", Impact, sans-serif;
-    font-size: 4.25rem;
+    font-size: clamp(3rem, 12vw, 4.25rem);
     line-height: 0.82;
     padding: 0.09em 0.18em 0 0;
     color: var(--brand-primary);
@@ -345,7 +667,7 @@
   }
   .bullets li {
     position: relative;
-    padding: 1.125rem 0 1.125rem 2.75rem;
+    padding: 1.125rem 0 1.125rem 2.25rem;
     border-top: 1px solid var(--ink-25);
     font-size: 1.0625rem;
     line-height: 1.6;
@@ -431,6 +753,29 @@
     object-fit: cover;
   }
 
+  /* The spinning mark over the hero photograph. Scales with the photo rather
+     than sitting at a fixed 120px, which swallowed a phone-width image. */
+  .sunburst {
+    position: absolute;
+    right: 3%;
+    bottom: 3%;
+    width: clamp(58px, 20%, 120px);
+    aspect-ratio: 1;
+  }
+  .sunburst-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(0.34rem, 1.6vw, 0.53rem);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-align: center;
+    line-height: 1.5;
+    color: var(--brand-ink);
+  }
+
   .fig-caption {
     display: flex;
     flex-wrap: wrap;
@@ -456,13 +801,19 @@
      The numbered row lists: programmes, ways to help. A whole row is the link,
      it slides right and fills gold on hover. */
 
+  /* Placed by area, not by source order. On a phone the row folds so the
+     description drops under the title — with three columns and four children
+     the arrow used to wrap into the number's cell. */
   .index-row {
     display: grid;
-    grid-template-columns: 3.5rem 1fr 2rem;
-    gap: 1rem;
+    grid-template-columns: 2.75rem 1fr 1.75rem;
+    grid-template-areas:
+      "num title arrow"
+      "num note  note";
+    gap: 0.4rem 0.75rem;
     align-items: center;
     border-top: 1px solid var(--brand-ink);
-    padding: 1.5rem 0.5rem;
+    padding: 1.25rem 0.5rem;
     transition:
       background 0.35s,
       color 0.35s,
@@ -471,9 +822,39 @@
   .index-row:last-child {
     border-bottom: 1px solid var(--brand-ink);
   }
+  .index-num {
+    grid-area: num;
+    align-self: start;
+    padding-top: 0.3rem;
+  }
+  .index-title {
+    grid-area: title;
+    min-width: 0;
+  }
+  .index-note {
+    grid-area: note;
+  }
+  .index-arrow {
+    grid-area: arrow;
+    align-self: start;
+  }
   @media (min-width: 64rem) {
     .index-row {
       grid-template-columns: 5.625rem 1fr 23.75rem 3rem;
+      grid-template-areas: "num title note arrow";
+      gap: 1.5rem;
+      padding: 1.5rem 0.5rem;
+    }
+    .index-num,
+    .index-arrow {
+      align-self: center;
+      padding-top: 0;
+    }
+    /* The "ways to help" rows carry no description, so they close the gap the
+       note column would otherwise hold open. */
+    .index-row.is-compact {
+      grid-template-columns: 5.625rem 1fr 3rem;
+      grid-template-areas: "num title arrow";
     }
   }
   .index-row:hover {
@@ -520,20 +901,28 @@
 
   /* ---------------------------------------------------------- scoreboard -- */
 
+  /* Stacked on a phone: the figure is far too big to sit beside its own label
+     at 360px, and shrinking it to fit would waste the one thing this section
+     exists to say. */
   .score-row {
     display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 1rem 2rem;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
     align-items: center;
-    border-top: 1px solid var(--paper-25);
-    padding: 2.125rem 0;
+    padding: 0 0 1.75rem;
   }
-  .score-row:last-child {
-    border-bottom: 1px solid var(--paper-25);
+  /* The rule is a real element rather than a border so it can draw itself. */
+  .score-rule {
+    grid-column: 1 / -1;
+    height: 1px;
+    background: var(--paper-25);
+    margin-bottom: 1rem;
   }
   @media (min-width: 48rem) {
     .score-row {
       grid-template-columns: 6.875rem 1fr auto;
+      gap: 1rem 2rem;
+      padding: 0 0 2.125rem;
     }
   }
   .score-index {
@@ -549,7 +938,7 @@
   }
   .score-value {
     font-family: var(--font-display), "Anton", Impact, sans-serif;
-    font-size: clamp(3.5rem, 8vw, 7.75rem);
+    font-size: clamp(3rem, 13vw, 7.75rem);
     line-height: 0.9;
     color: var(--brand-accent);
     font-variant-numeric: tabular-nums;
@@ -566,16 +955,23 @@
   .timeline-fill {
     display: none;
   }
+  /* On a phone the centre line becomes a left rail: the diamond nodes and the
+     alternating sides only make sense once there is room for two columns. */
   .tl-row {
     display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 1rem;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
     align-items: center;
-    margin-bottom: 3rem;
+    margin-bottom: 2.25rem;
+    border-left: 2px solid var(--brand-accent);
+    padding-left: 1rem;
+  }
+  .tl-node {
+    display: none;
   }
   .tl-year {
     font-family: var(--font-display), "Anton", Impact, sans-serif;
-    font-size: clamp(2.5rem, 6vw, 5.75rem);
+    font-size: clamp(2rem, 9vw, 5.75rem);
     line-height: 1;
     color: var(--brand-primary);
   }
@@ -589,6 +985,8 @@
       -webkit-text-stroke: 0;
     }
   }
+  /* Shape only — whether it shows at all is decided above and in the media
+     query below. */
   .tl-node {
     justify-self: center;
     width: 0.75rem;
@@ -627,6 +1025,12 @@
     .tl-row {
       grid-template-columns: 1fr 5.625rem 1fr;
       margin-bottom: 5.375rem;
+      border-left: 0;
+      padding-left: 0;
+      gap: 1rem;
+    }
+    .tl-node {
+      display: block;
     }
     .tl-row:nth-child(odd) .tl-year {
       text-align: right;
@@ -663,7 +1067,9 @@
   }
   .print {
     flex: none;
-    width: 20rem;
+    /* Narrower than the viewport so the next card always peeks in and the
+       scroller reads as scrollable without an affordance. */
+    width: min(20rem, 78vw);
     margin: 0;
     background: var(--brand-paper);
     color: var(--brand-ink);
@@ -754,7 +1160,7 @@
   /* The faint year set behind a story photograph. */
   .watermark {
     font-family: var(--font-display), "Anton", Impact, sans-serif;
-    font-size: clamp(6rem, 13vw, 13.125rem);
+    font-size: clamp(4rem, 16vw, 13.125rem);
     line-height: 1;
     color: color-mix(in srgb, var(--brand-primary) 40%, transparent);
     margin-bottom: -0.28em;
@@ -769,18 +1175,400 @@
     }
   }
 
+  /* The pull-quote is a two-part reveal: the gold bar grows, then the words
+     arrive under it. Built as a grid rather than a border so the bar is a real
+     element that can be animated. */
   .pull-quote {
+    display: grid;
+    grid-template-columns: 3px 1fr;
+    gap: 1.625rem;
     margin: 3.75rem 0 0;
-    padding: 0 0 0 1.625rem;
-    border-left: 3px solid var(--brand-accent);
+    padding: 0;
+    border: 0;
+  }
+  .quote-bar {
+    background: var(--brand-accent);
+    transform: scaleY(0);
+    transform-origin: top;
+    transition: transform 0.5s var(--ease-out);
+  }
+  .quote-text {
+    margin: 0;
     font-style: italic;
     font-weight: 500;
     font-size: clamp(1.375rem, 2.4vw, 2.125rem);
     line-height: 1.3;
     color: var(--brand-primary);
+    opacity: 0;
+    transition: opacity 0.5s var(--ease-out) 0.42s;
   }
-  .band-dark .pull-quote,
-  .band-deep .pull-quote {
+  .pull-quote.is-in .quote-bar {
+    transform: scaleY(1);
+  }
+  .pull-quote.is-in .quote-text {
+    opacity: 1;
+  }
+  .band-dark .quote-text,
+  .band-deep .quote-text {
     color: var(--brand-accent);
+  }
+}
+
+/* ===========================================================================
+   Motion
+   ---------------------------------------------------------------------------
+   Everything here is decoration over markup that is already complete. The
+   accompanying JS is src/components/motion.tsx: one setup, one teardown, two
+   IntersectionObservers and one shared rAF scroll loop.
+
+   Deliberately NOT built, on the design's own advice: the scroll-velocity
+   marquee (the one effect that can look broken), and the magnetic button — it
+   and the cursor ring both chase the pointer, so on the gold band you would get
+   two objects racing one cursor. The ring wins; it is site-wide and cheaper.
+=========================================================================== */
+
+@layer components {
+  /* ------------------------------------------------------------- masthead -- */
+
+  .masthead {
+    transition:
+      background 0.35s var(--ease-out),
+      border-color 0.35s var(--ease-out);
+  }
+  .masthead-row {
+    transition: padding-block 0.35s var(--ease-out);
+  }
+  .masthead.is-tight {
+    border-bottom-color: var(--brand-ink);
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--brand-ink) 12%, transparent);
+  }
+  .masthead.is-tight .masthead-logo {
+    height: 30px;
+  }
+  .masthead-logo {
+    transition: height 0.35s var(--ease-out);
+  }
+
+  /* The underline draws from the left rather than blinking on. */
+  .masthead-nav a {
+    position: relative;
+  }
+  .masthead-nav a::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 1rem;
+    height: 1.5px;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.42s var(--ease-out);
+  }
+  .masthead-nav a:hover::after {
+    transform: scaleX(1);
+  }
+  .masthead-nav a:hover {
+    border-bottom-color: transparent;
+  }
+
+  .masthead-donate .arr {
+    display: inline-block;
+    transition: transform 0.3s var(--ease-out);
+  }
+  .masthead-donate:hover {
+    background: var(--brand-ink);
+    color: var(--brand-accent);
+  }
+  .masthead-donate:hover .arr {
+    transform: translate3d(3px, -3px, 0);
+  }
+
+  /* --------------------------------------------------------------- hero -- */
+
+  .rise-mask {
+    display: block;
+    overflow: hidden;
+  }
+  .rise {
+    display: block;
+    animation: dis-rise 0.85s var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 120ms);
+  }
+
+  /* The gold marker paints itself in behind the word, after the line lands. */
+  .mark {
+    position: relative;
+    background: none;
+    z-index: 0;
+  }
+  .mark::before {
+    content: "";
+    position: absolute;
+    left: -0.06em;
+    right: -0.06em;
+    top: 0.14em;
+    bottom: 0.04em;
+    background: var(--brand-accent);
+    z-index: -1;
+    transform: scaleX(0);
+    transform-origin: left;
+    animation: dis-paint 0.5s var(--ease-out) 0.62s both;
+  }
+
+  .plate-wipe {
+    clip-path: inset(100% 0 0 0);
+    animation: dis-plate-wipe 0.9s var(--ease-out) 0.25s both;
+  }
+  .plate-wipe > img {
+    animation: dis-plate-settle 0.9s var(--ease-out) 0.25s both;
+  }
+
+  /* Photographs warm under attention rather than staying flat grey. */
+  .plate img {
+    transition: filter 0.7s var(--ease-out);
+  }
+  .plate:hover img,
+  a:hover .plate img,
+  .print:hover .plate img {
+    filter: grayscale(0.55) contrast(1.1);
+  }
+
+  /* --------------------------------------------------------------- marquee -- */
+
+  .marquee:hover .marquee-track {
+    animation-play-state: paused;
+  }
+
+  /* ------------------------------------------------------------ odometer -- */
+
+  .odo {
+    display: inline-flex;
+    overflow: hidden;
+    line-height: 0.9;
+    vertical-align: bottom;
+  }
+  .odo-col {
+    overflow: hidden;
+    height: 1em;
+  }
+  .odo-strip {
+    display: block;
+    transform: translateY(0);
+    transition: transform 1.4s var(--ease-out);
+    transition-delay: var(--od, 0ms);
+  }
+  .odo-strip > span {
+    display: block;
+    height: 1em;
+  }
+
+  /* ----------------------------------------------------------- index rows -- */
+
+  /* The gold wipes across from the left instead of switching, and the row
+     itself slides. Overriding the plain background swap defined earlier. */
+  .index-row {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    transition:
+      transform 0.5s var(--ease-out),
+      color 0.35s var(--ease-out);
+  }
+  .index-row::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--brand-accent);
+    z-index: -1;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.5s var(--ease-out);
+  }
+  .index-row:hover {
+    background: none;
+    padding-left: 0.5rem;
+    transform: translate3d(1.75rem, 0, 0);
+  }
+  .index-row:hover::before {
+    transform: scaleX(1);
+  }
+  .band-gold .index-row::before {
+    background: var(--brand-ink);
+  }
+  .index-arrow,
+  .index-note {
+    transition: transform 0.5s var(--ease-out);
+  }
+  .index-row:hover .index-arrow {
+    transform: translate3d(6px, 0, 0);
+  }
+  .index-row:hover .index-note {
+    transform: translate3d(0, -2px, 0);
+  }
+  .index-num {
+    transition: color 0.3s var(--ease-out) 0.12s;
+  }
+
+  /* -------------------------------------------------------------- prints -- */
+
+  /* The tilt is the resting state, so entering rotates *into* it — the card
+     settles rather than appearing already crooked. */
+  .print:nth-child(4n + 1) {
+    --tilt: -1.2deg;
+  }
+  .print:nth-child(4n + 2) {
+    --tilt: 1deg;
+  }
+  .print:nth-child(4n + 3) {
+    --tilt: -0.8deg;
+  }
+  .print:nth-child(4n) {
+    --tilt: 1.4deg;
+  }
+  .print {
+    transform: rotate(var(--tilt, 0deg));
+  }
+  [data-reveal].print {
+    transform: translateY(44px) rotate(0deg);
+  }
+  [data-reveal].print.is-in {
+    transform: rotate(var(--tilt, 0deg));
+  }
+  .print:hover {
+    transform: translate3d(0, -8px, 0) rotate(0deg);
+    box-shadow: 0 26px 60px rgb(16 5 34 / 0.5);
+  }
+
+  .card-scroller {
+    cursor: grab;
+    scrollbar-width: none;
+  }
+  .card-scroller::-webkit-scrollbar {
+    display: none;
+  }
+  .card-scroller.is-drag {
+    cursor: grabbing;
+    scroll-snap-type: none;
+  }
+
+  /* ------------------------------------------------------------ timeline -- */
+
+  .tl-node {
+    transform: rotate(45deg) scale(0);
+  }
+  .tl-node.is-on {
+    animation: dis-node-pop 0.45s var(--ease-out) both;
+  }
+  .tl-row .tl-year {
+    transition: color 0.4s var(--ease-out);
+  }
+  @supports (-webkit-text-stroke: 2px black) {
+    .tl-row.is-on .tl-year {
+      color: var(--brand-primary);
+      -webkit-text-stroke: 0;
+    }
+  }
+  .tl-row.is-now.is-on .tl-node {
+    animation: dis-breath 3s ease-in-out infinite;
+  }
+
+  /* ------------------------------------------------------------- QR tilt -- */
+
+  .qr-tilt {
+    transform: perspective(700px) rotateX(0) rotateY(0);
+    transition: transform 0.3s var(--ease-out);
+    will-change: transform;
+  }
+
+  /* ------------------------------------------------- global furniture -- */
+
+  .progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--brand-accent);
+    z-index: 300;
+    transform: scaleX(0);
+    transform-origin: left;
+    pointer-events: none;
+  }
+
+  .route-curtain {
+    position: fixed;
+    inset: -30%;
+    background: var(--brand-accent);
+    z-index: 250;
+    pointer-events: none;
+    transform: translate3d(-140%, -40%, 0) rotate(-18deg);
+  }
+  .route-curtain.is-wiping {
+    animation: dis-route 0.82s var(--ease-out) both;
+  }
+
+  .ring {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 28px;
+    height: 28px;
+    margin: -14px 0 0 -14px;
+    border: 1.5px solid var(--brand-accent);
+    border-radius: 99px;
+    z-index: 280;
+    pointer-events: none;
+    background: transparent;
+    transition:
+      width 0.25s var(--ease-out),
+      height 0.25s var(--ease-out),
+      margin 0.25s var(--ease-out),
+      background 0.25s var(--ease-out);
+  }
+  .ring.is-big {
+    width: 52px;
+    height: 52px;
+    margin: -26px 0 0 -26px;
+    background: color-mix(in srgb, var(--brand-accent) 18%, transparent);
+  }
+
+  /* --------------------------------------------------- FLIP lightbox -- */
+
+  .gal-open {
+    cursor: zoom-in;
+    display: block;
+    border: 0;
+    padding: 0;
+    background: none;
+    width: 100%;
+    font: inherit;
+    color: inherit;
+  }
+  .lb {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: none;
+    place-items: center;
+    background: color-mix(in srgb, var(--band-night) 88%, transparent);
+    opacity: 0;
+    transition: opacity 0.3s var(--ease-out);
+    cursor: zoom-out;
+    border: 0;
+    padding: 0;
+  }
+  .lb.is-open {
+    display: grid;
+    opacity: 1;
+  }
+  .lb img {
+    transform-origin: top left;
+    will-change: transform;
+    display: block;
+    max-width: 92vw;
+    max-height: 88vh;
+    width: auto;
+    height: auto;
   }
 }
