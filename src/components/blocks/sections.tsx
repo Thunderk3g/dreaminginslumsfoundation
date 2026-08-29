@@ -69,27 +69,59 @@ function Paragraphs({ text, className = "prose" }: { text: string; className?: s
  * description is missing the element gets `alt=""`, which tells a screen reader
  * to skip it: an announced filename is worse than silence.
  */
+/**
+ * `ratio` exists so the plate matches the shape of what is actually in the
+ * library. The scraped photography is 4:3 (1024×768 and 768×576) and the
+ * portraits are square (400×400) — pick the matching box and `object-fit:
+ * cover` crops nothing. Get it wrong and it eats faces, which is exactly what
+ * a mismatched box was doing to the team.
+ */
+type Ratio = "auto" | "square" | "photo";
+
 function Figure({
   mediaId,
   media,
-  cover = false,
+  ratio = "auto",
   wipe = false,
   eager = false,
+  plain = false,
   missing = "No photograph chosen",
 }: {
   mediaId: string | null;
   media: MediaMap;
-  cover?: boolean;
+  ratio?: Ratio;
   /** Reveals under a bottom-up clip wipe while the image settles from 1.06. */
   wipe?: boolean;
   eager?: boolean;
+  /**
+   * Skips the purple plate entirely. For images that are not photographs and
+   * must not be tinted — the bank QR code above all, which has to stay
+   * high-contrast black on white or a phone camera will not read it.
+   */
+  plain?: boolean;
   missing?: string | null;
 }) {
   const src = mediaSrc(mediaId);
   if (!src) return missing ? <p className="no-media">{missing}</p> : null;
   const meta = mediaId ? media[mediaId] : undefined;
+
+  if (plain) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt={meta?.alt ?? ""}
+        width={meta?.width ?? undefined}
+        height={meta?.height ?? undefined}
+        loading="lazy"
+        style={{ display: "block", width: "100%", height: "auto" }}
+      />
+    );
+  }
+
+  const shape = ratio === "square" ? " plate-square" : ratio === "photo" ? " plate-photo" : "";
   return (
-    <div className={`plate${cover ? " plate-cover" : ""}${wipe ? " plate-wipe" : ""}`}>
+    <div className={`plate${shape}${wipe ? " plate-wipe" : ""}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
@@ -156,7 +188,9 @@ export function HeroSliderBlock({ data, media }: { data: Data; media: MediaMap }
     <header
       style={{
         position: "relative",
-        padding: "clamp(7rem,12vw,9.5rem) 0 clamp(3rem,6vw,4.5rem)",
+        // The sticky masthead already occupies the top of a phone screen, so a
+        // 7rem floor here left a band of nothing under it.
+        padding: "clamp(3rem,12vw,9.5rem) 0 clamp(2.5rem,6vw,4.5rem)",
         borderBottom: "1px solid var(--brand-ink)",
         overflow: "hidden",
       }}
@@ -448,7 +482,7 @@ export function AchievementRailBlock({
           {items.map((item) => (
             <li key={item.id} data-anim>
               <figure style={{ margin: 0 }}>
-                <Figure mediaId={id(item.data, "media_id")} media={media} cover missing={null} />
+                <Figure mediaId={id(item.data, "media_id")} media={media} ratio="photo" missing={null} />
                 <figcaption style={{ marginTop: "0.875rem" }}>
                   {s(item.data, "date_label") ? (
                     <div className="spec" style={{ color: "var(--brand-secondary)" }}>
@@ -492,14 +526,14 @@ export function GalleryGridBlock({
           </h2>
         ) : null}
 
-        <ul className="card-grid">
+        <ul className="card-grid card-grid-dense">
           {items.map((item) => (
             <li key={item.id} data-anim className="gal-item">
               <figure style={{ margin: 0 }}>
                 {/* A button, not a div: the lightbox has to be reachable and
                     openable from the keyboard. */}
                 <button type="button" className="gal-open" aria-label="Open photograph">
-                  <Figure mediaId={id(item.data, "media_id")} media={media} cover missing={null} />
+                  <Figure mediaId={id(item.data, "media_id")} media={media} ratio="photo" missing={null} />
                 </button>
                 {s(item.data, "caption") || s(item.data, "taken_label") ? (
                   <figcaption className="spec" style={{ marginTop: "0.625rem", color: "var(--ink-55)" }}>
@@ -561,12 +595,14 @@ export function TeamRailBlock({
         </div>
 
         {items.length ? (
-          <ul className="card-grid">
+          <ul className="card-grid card-grid-dense">
             {items.map((item) => {
               const socials = MEMBER_SOCIALS.filter((social) => s(item.data, social.key));
               return (
                 <li key={item.id} data-anim>
-                  <Figure mediaId={id(item.data, "media_id")} media={media} cover missing={null} />
+                  {/* Square: every portrait in the library is 400×400, so a
+                      square box shows the whole face instead of cropping it. */}
+                  <Figure mediaId={id(item.data, "media_id")} media={media} ratio="square" missing={null} />
                   <h3 className="h-md" style={{ marginTop: "0.875rem" }}>
                     {s(item.data, "name")}
                   </h3>
@@ -632,9 +668,9 @@ export function DreamerRailBlock({
           <li key={item.id} className="print" data-anim>
             <figure style={{ margin: 0 }}>
               <div style={{ position: "relative" }}>
-                <div className="plate plate-cover" style={{ height: 230 }}>
-                  <Figure mediaId={id(item.data, "media_id")} media={media} cover missing={null} />
-                </div>
+                {/* One plate, not a plate inside a plate — nesting them
+                    doubled the purple ground and the luminosity blend. */}
+                <Figure mediaId={id(item.data, "media_id")} media={media} ratio="square" missing={null} />
                 <div
                   className="display outline outline-accent"
                   style={{ position: "absolute", top: 8, right: 12, fontSize: 64, lineHeight: 1 }}
@@ -772,8 +808,8 @@ export function ImageBannerBlock({ data, media }: { data: Data; media: MediaMap 
     >
       {mediaId ? (
         <div style={{ position: "absolute", inset: 0 }} aria-hidden>
-          <div className="plate plate-cover" style={{ height: "100%", opacity: 0.55 }}>
-            <Figure mediaId={mediaId} media={media} cover missing={null} />
+          <div className="banner-bleed">
+            <Figure mediaId={mediaId} media={media} missing={null} />
           </div>
         </div>
       ) : null}
@@ -839,7 +875,10 @@ export function DonateCtaBlock({ data, media }: { data: Data; media: MediaMap })
                 boxShadow: "0 24px 50px rgb(23 9 46 / 0.4)",
               }}
             >
-              <Figure mediaId={qr} media={media} missing={null} />
+              {/* Never plated: a tinted QR code is a QR code that may not
+                  scan, and a donation that silently fails is the worst
+                  possible failure on this page. */}
+              <Figure mediaId={qr} media={media} plain missing={null} />
               {s(data, "qr_caption") ? (
                 <figcaption
                   className="spec"

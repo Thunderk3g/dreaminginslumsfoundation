@@ -748,8 +748,32 @@
     mix-blend-mode: luminosity;
     opacity: 0.92;
   }
-  .plate-cover img {
+  /* Shaped plates. The ratio is chosen to match the source so `cover` crops
+     nothing: the scraped photography is 4:3, the portraits are square. */
+  .plate-photo {
+    aspect-ratio: 4 / 3;
+  }
+  .plate-square {
+    aspect-ratio: 1;
+  }
+  .plate-photo img,
+  .plate-square img {
     height: 100%;
+    object-fit: cover;
+    /* If a future upload is taller than its box, keep the heads. */
+    object-position: center 30%;
+  }
+
+  /* The inner-page banner photograph, bled behind the title. */
+  .banner-bleed {
+    position: absolute;
+    inset: 0;
+    opacity: 0.5;
+  }
+  .banner-bleed .plate,
+  .banner-bleed img {
+    height: 100%;
+    width: 100%;
     object-fit: cover;
   }
 
@@ -1140,14 +1164,38 @@
     margin: 0;
   }
 
+  /* Portraits and gallery plates are square-ish and carry a line or two of
+     caption, so two of them fit a phone comfortably. One-up turned the homepage
+     into a 12,800px scroll. Achievements keep one column — their captions are
+     full sentences. */
+  .card-grid-dense {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  @media (min-width: 40rem) {
+    .card-grid-dense {
+      grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+      gap: 1.75rem;
+    }
+  }
+
   .split {
     display: grid;
-    gap: clamp(2rem, 5vw, 5rem);
+    gap: clamp(1.5rem, 5vw, 5rem);
     align-items: start;
+  }
+  /* Stacked on a phone the words always come first, whichever side the
+     photograph sits on at desktop. A heading that arrives after its own
+     picture reads as a caption for it. */
+  .split > .split-media {
+    order: 2;
   }
   @media (min-width: 64rem) {
     .split {
       grid-template-columns: 5fr 7fr;
+    }
+    .split > .split-media {
+      order: 0;
     }
     .split[data-layout="image_right"] > .split-media {
       order: 2;
