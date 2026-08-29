@@ -26,6 +26,11 @@ const nextConfig: NextConfig = {
 
   poweredByHeader: false,
 
+  // Prerendering reads from Supabase in Seoul while the build runs in the US,
+  // and twelve pages render at once. The 60s default is not much headroom for
+  // that many cross-Pacific round trips.
+  staticPageGenerationTimeout: 180,
+
   async headers() {
     return [
       {
