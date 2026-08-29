@@ -28,28 +28,40 @@ function connect() {
     );
   }
 
-  // Point DATABASE_URL at Supabase's **session** pooler (port 5432).
+  // Never the direct host (db.<ref>.supabase.co): it resolves to IPv6 only, and
+  // Vercel has no IPv6 egress, so connecting there fails with ENETUNREACH.
   //
-  // Not the direct host: it resolves to IPv6 only, and Vercel has no IPv6
-  // egress, so connecting there fails with ENETUNREACH.
+  // Which pooler matters enormously, and the two behave differently enough that
+  // the client has to be configured for the one it is talking to.
   //
-  // Not the transaction pooler (6543) either, despite that being the usual
-  // serverless advice — in the reference project it returned roughly one query
-  // per client and hung every subsequent one, unchanged by `prepare: false` or
-  // `fetch_types: false`.
+  //   Session mode (5432) holds one upstream connection per client connection,
+  //   and the whole project is capped at 15 of them — a budget shared across
+  //   every serverless instance alive at once, not per instance. Under any real
+  //   traffic the pooler answers with a FATAL
+  //       (EMAXCONNSESSION) max clients reached in session mode
+  //   and the page 500s. That is what took the console down.
   //
-  // `max` is 1, and that number is load-bearing. Session mode holds one
-  // upstream connection per client connection, and a Supabase project caps them
-  // at around 15 — so the budget is shared across every serverless instance
-  // alive at once, not per instance. A higher `max` exhausts it and the pooler
-  // answers with a FATAL `max clients reached in session mode`, which 500s the
-  // page. A request's queries serialise instead, which costs a round trip each,
-  // but nearly every public page here is ISR'd and never reaches this at all.
+  //   Transaction mode (6543) hands the connection back after each statement,
+  //   which is what a serverless app actually wants. It requires prepared
+  //   statements to be off — pgBouncer cannot route them — and with that set
+  //   it is stable: measured 12/12 concurrent clients where session mode was
+  //   already refusing connections.
+  //
+  // So: the app points at 6543. Migrations and the seed script keep 5432,
+  // because they are one long-lived process doing DDL, which is exactly what
+  // session mode is for.
+  const transactionMode = /:6543\b/.test(url);
+
   return postgres(url, {
     ssl: sslFor(url),
-    max: 1,
-    // Short, so an instance between requests hands its connection back to the
-    // shared budget quickly. A busy instance keeps resetting the timer.
+    // In transaction mode a connection is only held for the length of a
+    // statement, so a handful per instance is safe and saves a round trip on
+    // pages that issue several queries. In session mode it must stay at 1.
+    max: transactionMode ? 3 : 1,
+    // pgBouncer in transaction mode cannot route prepared statements: leaving
+    // this on is what makes postgres.js appear to "hang after one query".
+    prepare: !transactionMode,
+    // Short, so an instance between requests returns its connection quickly.
     idle_timeout: 3,
     connect_timeout: 15,
     connection: { search_path: "public, extensions" },
