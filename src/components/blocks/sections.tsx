@@ -202,19 +202,8 @@ export function HeroSliderBlock({ data, media }: { data: Data; media: MediaMap }
           const mediaId = typeof slide.media_id === "string" ? slide.media_id : null;
 
           return (
-            <div
-              key={i}
-              data-hero-slide=""
-              style={{ display: "grid", gap: "clamp(2rem,5vw,4rem)", gridTemplateColumns: "1fr" }}
-            >
-              <div
-                style={{
-                  display: "grid",
-                  gap: "clamp(2rem,5vw,4rem)",
-                  gridTemplateColumns: "min(100%, 40rem)",
-                  justifyContent: "start",
-                }}
-              >
+            <div key={i} data-hero-slide="" className="hero-grid">
+              <div className="hero-words">
                 <div>
                   {/* Each line rises out of its own mask, 120ms apart, and the
                       gold marker paints itself in once the first line lands. */}
@@ -245,7 +234,7 @@ export function HeroSliderBlock({ data, media }: { data: Data; media: MediaMap }
               </div>
 
               {mediaId ? (
-                <figure style={{ margin: 0, maxWidth: "40rem", justifySelf: "end", width: "100%" }}>
+                <figure className="hero-figure">
                   <div style={{ position: "relative" }}>
                     {/* The first slide is the LCP image on most visits, so it
                         loads eagerly and at high priority. */}
@@ -962,7 +951,7 @@ export function PartnerLogosBlock({
               <img
                 src={src}
                 alt={meta?.alt || s(item.data, "name")}
-                style={{ display: "block", width: "100%", height: "auto", filter: "grayscale(1)", opacity: 0.75 }}
+                style={{ display: "block", width: "100%", height: "auto" }}
                 loading="lazy"
               />
             ) : (

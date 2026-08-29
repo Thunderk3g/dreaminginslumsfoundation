@@ -575,9 +575,12 @@
     text-transform: uppercase;
     line-height: 0.92;
     letter-spacing: 0.01em;
-    /* The vw term has to carry the small end, not the rem floor: at 360px a
-       3.25rem floor is 52px of Anton, which "LIMITLESS" cannot fit. */
-    font-size: clamp(2.5rem, 10vw, 8.5rem);
+    /* Two constraints. The vw term carries the small end, not the rem floor:
+       at 360px a 3.25rem floor is 52px of Anton, which "LIMITLESS" cannot fit.
+       And the cap is sized for the hero's *column*, not the viewport — at
+       8.5rem the headline outgrew its half of the grid and pushed the
+       photograph into the bottom corner. */
+    font-size: clamp(2.5rem, 7.5vw, 7rem);
     margin: 0;
   }
   .h-lg {
@@ -735,6 +738,9 @@
      which is what makes a 2018 phone snapshot and a 2024 press photo look like
      they belong to one publication. */
 
+  /* Photographs render in their own colour.
+     The plate keeps its purple only as the ground behind an image that has not
+     arrived yet — once it does, it covers the plate completely. */
   .plate {
     position: relative;
     background: var(--brand-primary);
@@ -744,9 +750,6 @@
     display: block;
     width: 100%;
     height: auto;
-    filter: grayscale(1) contrast(1.15);
-    mix-blend-mode: luminosity;
-    opacity: 0.92;
   }
   /* Shaped plates. The ratio is chosen to match the source so `cover` crops
      nothing: the scraped photography is 4:3, the portraits are square. */
@@ -764,17 +767,52 @@
     object-position: center 30%;
   }
 
-  /* The inner-page banner photograph, bled behind the title. */
+  /* The inner-page banner photograph, bled behind the title.
+     The title is set in paper-white, so a full-colour photograph underneath it
+     cannot be trusted for contrast — a scrim does that job instead of dimming
+     the whole picture. */
   .banner-bleed {
     position: absolute;
     inset: 0;
-    opacity: 0.5;
   }
   .banner-bleed .plate,
   .banner-bleed img {
     height: 100%;
     width: 100%;
     object-fit: cover;
+  }
+  .banner-bleed::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to top,
+      color-mix(in srgb, var(--brand-ink) 88%, transparent) 0%,
+      color-mix(in srgb, var(--brand-ink) 62%, transparent) 45%,
+      color-mix(in srgb, var(--brand-ink) 30%, transparent) 100%
+    );
+  }
+
+  /* The hero: words and photograph side by side once there is room for two
+     columns. Stacked, the headline used half the width and left the right of
+     the screen empty. */
+  .hero-grid {
+    display: grid;
+    gap: clamp(2rem, 5vw, 3.5rem);
+    align-items: end;
+  }
+  @media (min-width: 64rem) {
+    .hero-grid {
+      grid-template-columns: 1.05fr 0.95fr;
+    }
+  }
+  .hero-words {
+    min-width: 0;
+  }
+  .hero-figure {
+    margin: 0;
+    width: 100%;
+    min-width: 0;
   }
 
   /* The spinning mark over the hero photograph. Scales with the photo rather
@@ -1372,14 +1410,21 @@
     animation: dis-plate-settle 0.9s var(--ease-out) 0.25s both;
   }
 
-  /* Photographs warm under attention rather than staying flat grey. */
+  /* Photographs push in slowly under attention. This replaces the old
+     grey-warms-to-colour hover, which has nothing left to do now that they are
+     in colour to begin with. */
   .plate img {
-    transition: filter 0.7s var(--ease-out);
+    transition: transform 0.7s var(--ease-out);
   }
   .plate:hover img,
   a:hover .plate img,
+  button:hover .plate img,
   .print:hover .plate img {
-    filter: grayscale(0.55) contrast(1.1);
+    transform: scale(1.04);
+  }
+  /* The hero image is mid-settle on load; a hover scale would fight it. */
+  .plate-wipe:hover img {
+    transform: none;
   }
 
   /* --------------------------------------------------------------- marquee -- */
