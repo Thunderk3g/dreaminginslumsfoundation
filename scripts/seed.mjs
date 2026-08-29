@@ -30,6 +30,12 @@ if (!process.env.DATABASE_URL) {
 }
 
 const IMAGE_DIR = path.join("content-inventory", "images");
+/**
+ * Media pulled out of the foundation's own deck (August 2026). Newer and
+ * better than anything on the old website — the logo here is 808px wide and
+ * transparent, against the 200px one the old site served.
+ */
+const DECK_DIR = path.join("content-inventory", "from-deck");
 const FORCE = process.argv.includes("--force");
 
 const ssl = /[?&]sslmode=disable/.test(process.env.DATABASE_URL) ? false : "require";
@@ -73,10 +79,10 @@ const ALT = {
 
 const media = new Map(); // filename -> uuid
 
-async function importImage(filename, alt) {
+async function importImage(filename, alt, dir = IMAGE_DIR) {
   if (media.has(filename)) return media.get(filename);
 
-  const file = path.join(IMAGE_DIR, filename);
+  const file = path.join(dir, filename);
   if (!fs.existsSync(file)) {
     console.warn(`  missing image, skipped: ${filename}`);
     media.set(filename, null);
@@ -161,6 +167,12 @@ const ACHIEVEMENTS = [
   ["achievments-34.jpg", "2019 and 2020", "Participated in Goals for Girls Leadership Summit 2019 in Nagpur & 2020 in Bangalore"],
   ["achievments-35.jpg", "", "Participated in Scort Foundation training associated with The football club & Social Alliance"],
   ["achievments-36.jpg", "2018", "Semi finalists in Bhandup Tournament 2018"],
+  // From the foundation's own deck, August 2026. Newer than anything the old
+  // website carried, and quoted the same way.
+  ["image16.jpg", "", "2 girls from our program represented Maharashtra States and won the tournament"],
+  ["image17.jpg", "", "30 girls have participated in Super league football tournament in Mumbai Football Association."],
+  ["image25.jpg", "2024", "1 coach completed her professional football coaching licence"],
+  [null, "2025", "1 coach completed her professional football coaching licence"],
 ];
 
 /**
@@ -242,11 +254,30 @@ if (!files.length) {
 
 // Achievement captions double as their own alt text: the caption already
 // describes what the photograph shows, and it was written by the foundation.
-const captionAlt = Object.fromEntries(ACHIEVEMENTS.map(([file, , caption]) => [file, caption]));
+const captionAlt = Object.fromEntries(
+  ACHIEVEMENTS.filter(([file]) => file).map(([file, , caption]) => [file, caption])
+);
 
 for (const file of files) {
   await importImage(file, captionAlt[file] ?? ALT[file] ?? "");
 }
+
+// The deck's media. Only the files actually used are imported — the deck also
+// carries slide furniture and screenshots that are not site content.
+const DECK_ALT = {
+  "image1.png": "Dreaming In Slums Foundation logo: hands reaching around a football",
+  "image19.jpg": "Nisha Athawale sitting on the pitch in her Dreaming In Slums kit",
+  "image20.jpg": "Sonali Yadav in her Dreaming In Slums kit",
+  "image16.jpg": "",
+  "image17.jpg": "",
+  "image25.jpg": "",
+};
+for (const [file, alt] of Object.entries(DECK_ALT)) {
+  // An achievement photograph describes itself through its caption, the same
+  // rule the old site's images follow.
+  await importImage(file, captionAlt[file] ?? alt, DECK_DIR);
+}
+
 console.log(`  ${media.size} photographs in the library`);
 
 /* Settings ----------------------------------------------------------------- */
@@ -258,7 +289,9 @@ await setSetting("site", {
   // tagline at all. It sets the huge line across the top of the footer; empty
   // it in Settings and that line simply disappears.
   tagline: "Play. Lead. Dream.",
-  logo_media_id: img("logo.png"),
+  // The deck's logo, not the old site's: 808px and transparent against 200px
+  // and flattened onto white.
+  logo_media_id: img("image1.png"),
   // The old site linked assets/images/favicon.png on every page; it 404s.
   favicon_media_id: null,
   email: "dreaminginslums22@gmail.com",
@@ -266,8 +299,9 @@ await setSetting("site", {
   address:
     "Room no 107, Jai Sainath Chawl, Dattamandir Road, Waghriwada, Vakola, Santacruz East, Mumbai-400055",
   facebook: "https://www.facebook.com/dreaminginaslum",
-  // The Instagram icon on the old site was a dead javascript:void(0) link.
-  instagram: "",
+  // The old site's Instagram icon was a dead javascript:void(0) link. The deck
+  // gives the actual handle.
+  instagram: "https://www.instagram.com/dreaming_in_slums/",
   youtube: "",
   linkedin: "",
   // NEW — design copy. The old footer had only an address and a phone number.
@@ -316,7 +350,7 @@ console.log("settings written");
 
 for (const [index, [file, date, caption]] of ACHIEVEMENTS.entries()) {
   await addItem("achievement", (index + 1) * 10, true, {
-    media_id: img(file),
+    media_id: file ? img(file) : null,
     date_label: date,
     caption,
   });
@@ -356,19 +390,24 @@ for (const [index, file] of GALLERY.entries()) {
  */
 const STATS = [
   [
-    "150+",
+    "200+",
     "girls training every weekend",
-    "Programs page, verbatim: “We Are Training 150 Plus Girls Every Weekend.”",
+    "Foundation deck, verbatim: “currently working with 200 plus girls on every weekend”. Supersedes the 150+ the old website carried.",
   ],
   [
-    "120",
-    "jerseys sponsored, girls and coaches",
-    "Achievements, verbatim: “120 Jersey’s Sponsored to the girls, including Coaches by FSSA”.",
+    "10",
+    "girls when we started",
+    "Foundation deck, verbatim: “We started with just 10 girls”.",
   ],
   [
-    "36",
-    "achievements on the record",
-    "The count of entries migrated from the old Achievements page.",
+    "2",
+    "centres — Dharavi and Santacruz",
+    "Foundation deck, verbatim: “we have 2 centres one in Dharavi and Santacruz”.",
+  ],
+  [
+    "30",
+    "girls in the MFA Super League",
+    "Foundation deck, verbatim: “30 girls have participated in Super league football tournament in Mumbai Football Association”. The old website said 5.",
   ],
   [
     "12A",
@@ -381,13 +420,63 @@ for (const [index, [value, label, note]] of STATS.entries()) {
   await addItem("impact_stat", (index + 1) * 10, true, { value, label, note });
 }
 
-// dreamer_story and partner stay empty: the old website carried neither, and
-// inventing quotes from named girls is not a thing a migration script gets to
-// do.
+/**
+ * The two change-maker statements, verbatim from the foundation's own deck,
+ * with the photographs that accompanied them.
+ *
+ * Consent is recorded as held because the foundation supplied these — names,
+ * words and pictures together — as material for publication. That is a
+ * different thing from a migration script inventing them, which is why the
+ * list was empty until this deck arrived. If either girl withdraws, untick the
+ * consent field and she disappears from the site immediately.
+ */
+const DREAMERS = [
+  {
+    name: "Nisha Athawale",
+    age: "17",
+    location: "",
+    media: "image19.jpg",
+    quote:
+      "From being trained to now training others, I truly understand why they say football is emotion. For me, it’s joy, pride, and purpose.",
+    story:
+      "I’m Nisha Athawale, 17, from Dreaming in Slum Foundation. My football journey began at 10 through my elder sister. Before that, I loved all sports—running, long jump, kho-kho, kabaddi—but had no idea what football was. That changed when I joined DIS and met Gulafsha Di and Prajakta Di, who shaped me into the player I am today.\n\n" +
+      "Coming from a middle-class family—my mom a maid, my dad an electrician—my parents always supported my dream. I’ve had the chance to play matches, attend the Goals for Girls program in Goa, and even watch a FIFA Women’s World Cup semifinal live.\n\n" +
+      "Today, I proudly represent my college football team and also lead and guide young players at DIS. From being trained to now training others, I truly understand why they say football is emotion. For me, it’s joy, pride, and purpose.\n\n" +
+      "I’m forever grateful to DIS and my coaches for believing in me.",
+  },
+  {
+    name: "Sonali Yadav",
+    age: "",
+    location: "",
+    media: "image20.jpg",
+    quote:
+      "Football helped me overcome fear, become a better communicator, and discover the leader within me.",
+    story:
+      "I’m Sonali Yadav, a proud footballer from Dreaming in Slums Foundation (DIS).\n\n" +
+      "I joined DIS at 15. Before that, I was the only girl playing cricket with boys in my area—until I had to stop. I never imagined I’d fall in love with football, but my life changed after joining DIS. I was shy, afraid to talk, and unsure of my abilities. But thanks to my coaches—Gulafsha Di, Muskan Di, Prajakta Di, and Sheetal Di—I found confidence, courage, and purpose.\n\n" +
+      "Through DIS, I got life-changing experiences: playing state-level tournaments, leading a project in Goa, winning a football event, and even learning to conduct sessions for younger kids. Football helped me overcome fear, become a better communicator, and discover the leader within me.\n\n" +
+      "I’ve learned that mistakes are part of growth, and taking that first step opens a world of opportunity. Football isn't just a game—it's my transformation story.",
+  },
+];
+
+for (const [index, d] of DREAMERS.entries()) {
+  await addItem("dreamer_story", (index + 1) * 10, true, {
+    name: d.name,
+    age: d.age,
+    location: d.location,
+    quote: d.quote,
+    story: d.story,
+    media_id: img(d.media),
+    consent: "yes",
+  });
+}
+
+// partner stays empty: neither the old website nor the deck names any.
 
 console.log(
   `content: ${ACHIEVEMENTS.length} achievements, ${TEAM.length} team members, ` +
-    `${GALLERY.length} gallery photographs, ${STATS.length} impact figures`
+    `${GALLERY.length} gallery photographs, ${STATS.length} impact figures, ` +
+    `${DREAMERS.length} dreamer stories`
 );
 
 /* Pages --------------------------------------------------------------------- */
@@ -464,7 +553,9 @@ await addBlock("home", "teaser_cards", 20, true, {
 await addBlock("home", "story", 30, true, {
   eyebrow: "About Us",
   title: "Our Mission",
-  body: "Inspiring females by connecting communities to their true goals. Collaborate with communities to provide an opportunity for a girl child to pursue her ambitions.",
+  // The deck's wording, which supersedes the old site's. The old site's two
+  // mission lines are kept as the bullets on the About page.
+  body: "Using sports and play to uplift girls' lives to build character, confidence and awareness about their rights.",
   bullets: [],
   media_id: img("our-mission.jpg"),
   layout: "image_right",
@@ -475,7 +566,7 @@ await addBlock("home", "story", 30, true, {
 await addBlock("home", "story", 40, true, {
   eyebrow: "What We Do",
   title: "Our Vision",
-  body: "Create a supportive environment for the girls in your community's growth and achievement by empowering them.",
+  body: "Elevate girls' lives who have been deprived of their fundamental rights in order to exist in our society.",
   bullets: [],
   media_id: img("our-vision.jpg"),
   layout: "image_left",
@@ -509,8 +600,7 @@ await addBlock("home", "achievement_rail", 70, true, {
   cta: link("See all achievements", "/achievements"),
 });
 
-// Hidden: a new content type with nothing in it yet.
-await addBlock("home", "dreamer_rail", 80, false, {
+await addBlock("home", "dreamer_rail", 80, true, {
   eyebrow: "In their own words",
   title: "Meet Our Dreamers",
   story_ids: [],
@@ -574,7 +664,11 @@ await addBlock("about", "story", 20, true, {
   body:
     "Dreaming In Slums, a nonprofit organization, focuses on imparting football training to young women aged 6 to 16. By offering a progressive curriculum of football skills, our primary aim is to foster empowerment among girls and women. Our objective is to equip young girls with essential life skills that will enable them to achieve independence as they grow. Through our efforts, we aspire to inspire other girls from disadvantaged urban backgrounds to pursue their dreams and embrace self-sufficiency. We achieve this by nurturing leadership abilities and providing positive role models within their communities. We firmly believe that engaging in football can unlock the full potential of these young girls, paving the way for a brighter future and enhanced opportunities" +
     "\n\n" +
-    "Dreaming In Slums was founded by Gulafsha Ansari in March 2017, driven by the mission to provide life skills through football coaching to girls and women from urban poor backgrounds. In April 2022, we achieved our registration and obtained the 12A certificate. Although still in the early stages of development, we have been fortunate to receive support from volunteers representing diverse backgrounds and societies, all united by their belief in our NGOs purpose. As we continue to grow, Dreaming In Slums envisions expanding its services to multiple locations across Mumbai and other states, amplifying our impact and reaching a greater number of individuals in need.",
+    "Dreaming In Slums was founded by Gulafsha Ansari in March 2017, driven by the mission to provide life skills through football coaching to girls and women from urban poor backgrounds. In April 2022, we achieved our registration and obtained the 12A certificate. Although still in the early stages of development, we have been fortunate to receive support from volunteers representing diverse backgrounds and societies, all united by their belief in our NGOs purpose. As we continue to grow, Dreaming In Slums envisions expanding its services to multiple locations across Mumbai and other states, amplifying our impact and reaching a greater number of individuals in need." +
+    "\n\n" +
+    // The deck's own description of the organisation, added rather than
+    // substituted — it says something the older paragraphs do not.
+    "Dreaming In Slums is an organization that uses sports and education to empower girls and enable them to achieve their full potential. In the underserved communities, girls are more vulnerable and destitute; we work with slum girls to help them build the capacity to live better lives and become active citizens.",
   bullets: [],
   media_id: null,
   layout: "none",
@@ -633,9 +727,10 @@ await addBlock("about", "story", 50, true, {
 await addBlock("about", "story", 60, true, {
   eyebrow: "",
   title: "Our Vision",
-  body: "",
+  body: "Elevate girls' lives who have been deprived of their fundamental rights in order to exist in our society.",
   bullets: [
-    "Elevate girls' lives who have been deprived of their fundamental rights in order to exist in our society.",
+    // The first of the old site's four vision lines is now the lead sentence
+    // above, so it is not repeated here.
     "Encourage young girls' aspirations so they can grow up to be strong, visionary women.",
     "Encourage all women and girls to discover their inner powers so they can dream big and take action.",
     "Create a supportive environment for the girls in your community's growth and achievement by empowering them.",
@@ -650,7 +745,7 @@ await addBlock("about", "story", 60, true, {
 await addBlock("about", "story", 70, true, {
   eyebrow: "",
   title: "Our Mission",
-  body: "",
+  body: "Using sports and play to uplift girls' lives to build character, confidence and awareness about their rights.",
   bullets: [
     "Inspiring females by connecting communities to their true goals.",
     "Collaborate with communities to provide an opportunity for a girl child to pursue her ambitions.",
@@ -672,21 +767,52 @@ await addBlock("programs", "program_list", 20, true, {
   entries: [
     {
       title: "Football Program",
+      // Figures updated from the foundation's own deck: 200 plus girls, not
+      // 150, and 30 girls in the Super League, not 5. The rest is the old
+      // site's wording, unchanged.
       body:
-        "We Are Training 150 Plus Girls Every Weekend. We Have Played Many Tournaments And Had Won\n\n" +
-        "2 Girls From Our Program Played States And Won\n\n" +
-        "5 Girls Have Participated In Superleague Football Tournament.\n\n" +
+        "We are training 200 plus girls every weekend, across 2 centres — one in Dharavi and one in Santacruz. We have played many tournaments and had won\n\n" +
+        "2 girls from our program represented Maharashtra States and won the tournament\n\n" +
+        "30 girls have participated in Super league football tournament in Mumbai Football Association.\n\n" +
         "We Have Also Participated In U12 Girls Tournaments. 2 Girls Got Selected To Play U17 Mumbai Football Association Youth League",
     },
     {
-      title: "Youth Coaching/Training program",
+      title: "Youth Training Program",
+      // The deck carries this list two years further than the old site did,
+      // and gives a different 2023 entry. Quoted from the deck.
       body:
-        "2019: - 2 Coaches Participated In International Grassroot Training Organized In India\n\n" +
-        "2021: - 4 Coach Participated In Training Organized By Coaches Across Continent On Child Safe Guarding, Gbv, Conflict Resolution.\n\n" +
-        "2022: - 10 Coaches Got Trained On Srhr And Gbv Purposefull Play\n\n" +
-        "2022: - 5 Youths Participated In Grassroot Training Youth Leader\n\n" +
-        "2023:- 2 Coaches Attended Grassroot Workshop Organised By Mumbai City Fc And Mumbai Football Association",
+        "2019:- 2 coaches participated in international grassroot training organized in India\n\n" +
+        "2021:- 4 coach participated in training organized by Coaches Across Continent on child safeguarding, GBV, conflict resolution.\n\n" +
+        "2022:- 10 coaches got trained on SRHR and GBV purposeful play\n\n" +
+        "2022:- 5 youths participated in grassroot training youth leader\n\n" +
+        "2023:- 4 youth participated in Coaches Across Continent training purposeful play\n\n" +
+        "2024:- 1 coach completed her professional football coaching licence\n\n" +
+        "2025:- 1 coach completed her professional football coaching licence",
     },
+  ],
+});
+
+/**
+ * The leadership programme by year, from the deck.
+ *
+ * Kept as its own block rather than merged into the write-ups below. The deck
+ * names five projects with years and headcounts; the old website describes five
+ * projects, some with different names and one with a conflicting year
+ * ("Say No to Plastic Bottles (2018)" against the deck's 2023). Merging them
+ * would mean deciding which of two sources from the same organisation is wrong,
+ * which is not a call a migration gets to make. Both are here; the foundation
+ * can reconcile them in the console.
+ */
+await addBlock("programs", "program_list", 25, true, {
+  eyebrow: "By year",
+  title: "Leadership program achievements",
+  intro: "",
+  entries: [
+    { title: "2019 — Find Safe Space To Play", body: "8 girls were selected for leadership camp." },
+    { title: "2020 — Best Out Of Waste", body: "4 girls were selected for camp." },
+    { title: "2021 — Power Of Education", body: "10 girls, online." },
+    { title: "2022 — Building Healthy Habits", body: "10 girls." },
+    { title: "2023 — Say No To Plastics", body: "10 girls." },
   ],
 });
 

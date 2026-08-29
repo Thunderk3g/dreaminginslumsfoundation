@@ -118,7 +118,8 @@ export const RECORD_SPECS: Record<RecordKind, RecordSpec> = {
       { kind: "text", name: "name", label: "Name" },
       { kind: "text", name: "age", label: "Age", placeholder: "14" },
       { kind: "text", name: "location", label: "Where she is from", placeholder: "Vakola, Santacruz East" },
-      { kind: "textarea", name: "quote", label: "In her own words", rows: 5 },
+      { kind: "textarea", name: "quote", label: "The line to pull out", rows: 3, hint: "One or two sentences. This is what shows on the card." },
+      { kind: "textarea", name: "story", label: "Her full statement", rows: 12, hint: "Kept whole, in her own words. Not shown on the card — this is the record." },
       { kind: "media", name: "media_id", label: "Photograph" },
       {
         kind: "select",
